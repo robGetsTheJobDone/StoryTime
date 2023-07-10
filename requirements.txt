@@ -1,0 +1,10 @@
+diffusers==0.16.1
+elevenlabs==0.2.18
+fastapi==0.100.0
+langchain==0.0.228
+pydantic==1.10.7
+python-dotenv==1.0.0
+soundfile==0.12.1
+stable_ts==2.6.4
+torch==2.0.1
+webvtt_py==0.4.6
