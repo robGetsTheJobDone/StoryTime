@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 from langchain.llms import OpenAI
+from modal import Image, Stub, web_endpoint
 
 
 
@@ -54,15 +55,16 @@ app.add_middleware(
 
 
 
+
 set_api_key(XI_API_KEY)
 # Load the StableDiffusionPipeline
 model_id = "runwayml/stable-diffusion-v1-5"
-pipe = DiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
+pipe = DiffusionPipeline.from_pretrained(model_id)
 pipe = pipe.to("mps")
-pipe.enable_attention_slicing()
+# pipe.enable_attention_slicing()
 
 
-model = stable_whisper.load_model('large')
+model = stable_whisper.load_model('base')
 
 # Mount the static file directory for FastAPI to serve
 app.mount("/audio_transcriptions", StaticFiles(directory="audio_transcriptions"), name="audio_transcriptions")
@@ -125,12 +127,14 @@ def read_srt(srt_path: str, chunk_size: int) -> List[Dict[str, Any]]:
     
     return chunks
 
-def generate_images_for_chunks(chunks: List[Dict[str, Any]], image_folder: str):
+def generate_images_for_chunks(chunks: List[Dict[str, Any]], image_folder: str, magic:any):
     images = []
     images_info = []
     for i, chunk in enumerate(chunks):
         try:
-            image = pipe("4k HD Cartoon style for a childrens book" + chunk["text"]).images[0] 
+            imgP = llm.predict(f"For a story about ${magic['summary']} with characters ${magic['characters']} create a prompt for a good background image for the line ${chunk['text']}")
+            print(imgP)
+            image = pipe(imgP).images[0] 
             image_path = f'{image_folder}/image_{i}.png'
             image.save(image_path)
             images.append(image_path)
@@ -151,14 +155,16 @@ def generate_images_for_chunks(chunks: List[Dict[str, Any]], image_folder: str):
 
 async def ai_maigc(input):
     f = llm.predict(f"Create a short story from ${input}")
-    return f
+    characters = llm.predict(f"Create a list of characters and descriptions ${f}")
+    summary = llm.predict(f"Create a summary of the story ${f}")
+    return {"story":f,"characters":characters, "summary":summary}
 
 
 @app.post("/transcribe/")
 async def transcribe_audio(input: TranscriptionInput):
     try:
-       
-        input.text = await ai_maigc(input.text)
+        magic = await ai_maigc(input.text)
+        input.text = magic['story']
 
         print(input.text)   
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -194,7 +200,7 @@ async def transcribe_audio(input: TranscriptionInput):
         # Generate images for chunks and save them
         image_folder = f'{directory}/images'
         os.makedirs(image_folder, exist_ok=True)
-        images = generate_images_for_chunks(chunks, image_folder)
+        images = generate_images_for_chunks(chunks, image_folder,magic)
         urls['images'] = [f'http://localhost:8000/{img}' for img in images]
 
     except Exception as e:

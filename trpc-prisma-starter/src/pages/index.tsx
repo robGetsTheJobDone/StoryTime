@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { NextPageWithLayout } from './_app';
 import KaraokePlayer from '~/components/AudioVis';
 import { useRouter } from 'next/router';
+import StoriesMenu from '~/components/Stories';
 
 const App: NextPageWithLayout = () => {
   const router = useRouter();
@@ -94,6 +95,7 @@ const App: NextPageWithLayout = () => {
           <p className='mt-2'>{loadingMsg}</p>
         </div>
       )}
+
     </div>
   );
 };
